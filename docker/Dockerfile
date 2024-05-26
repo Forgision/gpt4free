@@ -1,12 +1,11 @@
 FROM selenium/node-chrome
 
-ARG G4F_VERSION
+# ARG G4F_VERSION
 ARG G4F_USER=g4f
 ARG G4F_USER_ID=1000
 ARG G4F_NO_GUI
 ARG G4F_PASS=secret
 
-ENV G4F_VERSION $G4F_VERSION
 ENV G4F_USER $G4F_USER
 ENV G4F_USER_ID $G4F_USER_ID
 ENV G4F_NO_GUI $G4F_NO_GUI
@@ -23,6 +22,17 @@ ENV SEL_UID $G4F_USER_ID
 ENV SEL_GID $G4F_USER_ID
 
 USER root
+
+# RUN apt-get update
+
+RUN \
+G4F_VERSION=$(wget -qO-  "https://api.github.com/repos/xtekky/gpt4free/releases/latest" | awk '/tag_name/{print $4;exit}' FS='[""]') \
+echo "G4F_VERSION: ${G4F_VERSION}"
+
+RUN wget https://github.com/xtekky/gpt4free/archive/refs/tags/$(wget -qO-  "https://api.github.com/repos/xtekky/gpt4free/releases/latest" \
+| awk '/tag_name/{print $4;exit}' FS='[""]').zip -O /tmp/g4f.zip
+RUN unzip /tmp/g4f.zip
+RUN mv gpt4free-${G4F_VERSION}/g4f /app
 
 #  If docker compose, install git
 RUN if [ "$G4F_VERSION" = "" ] ; then \
@@ -67,6 +77,12 @@ RUN mkdir "${SE_DOWNLOAD_DIR}"
 RUN chown "${G4F_USER_ID}:${G4F_USER_ID}" $SE_DOWNLOAD_DIR /var/run/supervisor /var/log/supervisor
 RUN chown "${G4F_USER_ID}:${G4F_USER_ID}" -R /opt/bin/ /usr/bin/chromedriver /opt/selenium/
 
+COPY docker/update.sh $G4F_DIR
+
+RUN chown -R $G4F_USER:$G4F_USER $G4F_DIR
+
+RUN chmod +x /app/update.sh
+
 # Switch user
 USER $G4F_USER_ID
 
@@ -83,8 +99,8 @@ COPY requirements.txt $G4F_DIR
 # Upgrade pip for the latest features and install the project's Python dependencies.
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy the entire package into the container.
-ADD --chown=$G4F_USER:$G4F_USER g4f $G4F_DIR/g4f
+# # Copy the entire package into the container.
+# # ADD --chown=$G4F_USER:$G4F_USER g4f $G4F_DIR/g4f
 
 # Expose ports
 EXPOSE 8080 1337
